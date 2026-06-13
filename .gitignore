@@ -1,0 +1,14 @@
+# Virtual environment
+evaluasi_env/
+
+# Environment variables (berisi kredensial)
+.env
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE
+.vscode/
+.idea/
