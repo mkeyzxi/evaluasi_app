@@ -19,15 +19,33 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # ─── Fungsi Data (Supabase) ──────────────────────────────────
 def load_data():
-    """Mengambil seluruh data dari tabel 'evaluasi' di Supabase."""
+    """Mengambil seluruh data dari tabel 'evaluasi' di Supabase, dengan deduplikasi."""
     try:
         response = supabase.table("evaluasi").select("*").order("query_id").order("metode").order("rank").execute()
         data = response.data
-        # Pastikan setiap baris punya skor_relevansi yang valid
+
+        # Deduplikasi: jika ada baris duplikat (query_id, metode, rank), ambil hanya yang pertama
+        seen = set()
+        unique_data = []
         for item in data:
+            key = (item["query_id"], item["metode"], item["rank"])
+            if key in seen:
+                continue  # Lewati duplikat
+            seen.add(key)
+
             if item.get("skor_relevansi") is None:
                 item["skor_relevansi"] = {"mhs1": None, "mhs2": None, "dsn3": None}
-        return data
+            unique_data.append(item)
+
+        if len(unique_data) < len(data):
+            # Ada duplikat terdeteksi di database
+            import streamlit as st
+            st.warning(
+                f"⚠️ Terdeteksi {len(data) - len(unique_data)} baris duplikat di database. "
+                f"Jalankan ulang `python migrate.py` untuk membersihkan data."
+            )
+
+        return unique_data
     except Exception as e:
         st.error(f"Gagal mengambil data dari Supabase: {e}")
         return []
@@ -136,14 +154,20 @@ def evaluator_page(data):
 
     st.sidebar.markdown("---")
 
-    # Ekstraksi dan pengurutan Query ID
-    queries = list(dict.fromkeys([d['query_id'] for d in data]))
-    queries.sort()
+    # Ekstraksi dan pengurutan Query ID beserta teks query-nya
+    query_map = {}
+    for d in data:
+        if d['query_id'] not in query_map:
+            query_map[d['query_id']] = d['query_text']
 
-    selected_query = st.sidebar.selectbox("Fokus Evaluasi (Pilih Query):", queries)
+    queries = sorted(query_map.keys())
+    query_labels = [f"{qid} — {query_map[qid]}" for qid in queries]
+
+    selected_label = st.sidebar.selectbox("Fokus Evaluasi (Pilih Query):", query_labels)
+    selected_query = selected_label.split(" — ")[0]  # Ambil Query ID dari label
 
     docs_to_evaluate = [d for d in data if d['query_id'] == selected_query]
-    query_text = docs_to_evaluate[0]['query_text'] if docs_to_evaluate else ""
+    query_text = query_map.get(selected_query, "")
 
     # Kalkulasi progress per query
     query_done = sum(

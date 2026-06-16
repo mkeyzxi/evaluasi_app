@@ -1,6 +1,6 @@
 # migrate.py
 # Skrip migrasi: mengisi tabel 'evaluasi' di Supabase dari file evaluasi_model.json
-# Jalankan sekali saja setelah tabel dibuat di Supabase.
+# AMAN dijalankan berulang kali — data lama akan dihapus terlebih dahulu.
 
 import json
 import os
@@ -21,7 +21,17 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 with open("evaluasi_model.json", encoding="utf-8") as f:
     data = json.load(f)
 
-# Konversi data dari format JSON lama ke format tabel Supabase
+# ─── Langkah 1: Hapus seluruh data lama agar tidak duplikat ───
+print("Menghapus data lama di tabel 'evaluasi'...")
+try:
+    # Supabase memerlukan filter untuk delete; gunakan id > 0 untuk match semua baris
+    supabase.table("evaluasi").delete().gt("id", 0).execute()
+    print("  Data lama berhasil dihapus.")
+except Exception as e:
+    print(f"  WARNING: Gagal menghapus data lama: {e}")
+    print("  Melanjutkan proses insert...")
+
+# ─── Langkah 2: Konversi data dari format JSON ke format tabel Supabase ───
 rows = []
 for item in data:
     # Ambil skor relevansi yang sudah ada (jika sudah dalam format JSONB baru)
@@ -49,8 +59,22 @@ for item in data:
         "skor_relevansi": skor
     })
 
-# Insert dalam batch (Supabase mendukung bulk insert)
-# Bagi ke batch 500 baris agar tidak melebihi payload limit
+# ─── Langkah 3: Validasi — pastikan tidak ada duplikat di sumber JSON ───
+seen_keys = set()
+duplicates = 0
+for r in rows:
+    key = (r["query_id"], r["metode"], r["rank"])
+    if key in seen_keys:
+        duplicates += 1
+        print(f"  WARNING: Duplikat ditemukan di JSON: {key}")
+    seen_keys.add(key)
+
+if duplicates > 0:
+    print(f"\n  Ditemukan {duplicates} duplikat di file JSON. Periksa evaluasi_model.json!")
+else:
+    print(f"\n  Validasi OK: {len(rows)} baris unik dari JSON.")
+
+# ─── Langkah 4: Insert dalam batch ───
 BATCH_SIZE = 500
 total_inserted = 0
 
@@ -64,3 +88,21 @@ for i in range(0, len(rows), BATCH_SIZE):
         print(f"  ERROR pada batch {i // BATCH_SIZE + 1}: {e}")
 
 print(f"\nSelesai! Total {total_inserted} dari {len(rows)} baris berhasil dimasukkan ke tabel 'evaluasi'.")
+
+# --- Langkah 5: Verifikasi data di Supabase ---
+print("\n--- Verifikasi Data ---")
+try:
+    result = supabase.table("evaluasi").select("query_id", count="exact").execute()
+    total_in_db = result.count if result.count is not None else len(result.data)
+    print(f"  Total baris di tabel Supabase: {total_in_db}")
+
+    # Hitung jumlah query unik
+    unique_queries = set(r["query_id"] for r in result.data)
+    print(f"  Jumlah query unik: {len(unique_queries)}")
+
+    if total_in_db != len(rows):
+        print(f"  WARNING: Jumlah baris tidak cocok! JSON={len(rows)}, DB={total_in_db}")
+    else:
+        print(f"  OK: Jumlah baris cocok ({total_in_db}).")
+except Exception as e:
+    print(f"  Gagal memverifikasi: {e}")
