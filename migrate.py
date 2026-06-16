@@ -18,7 +18,14 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-with open("evaluasi_model.json", encoding="utf-8") as f:
+# Pastikan nama file JSON sesuai dengan yang ada di direktori Anda
+FILE_JSON = "evaluasi_model.json"
+
+if not os.path.exists(FILE_JSON):
+    print(f"ERROR: File {FILE_JSON} tidak ditemukan di direktori ini.")
+    exit(1)
+
+with open(FILE_JSON, encoding="utf-8") as f:
     data = json.load(f)
 
 # ─── Langkah 1: Hapus seluruh data lama agar tidak duplikat ───
@@ -48,14 +55,18 @@ for item in data:
             "dsn3": item.get("Skor_Relevansi_3")
         }
 
+    # PERBAIKAN: Menggunakan fallback .get() agar mendukung format JSON lama maupun baru
+    query_id_val = item.get("ID", item.get("Query_ID", "Unknown_ID"))
+    abstrak_val = item.get("Abstrak", item.get("Abstrak_Murni", ""))
+
     rows.append({
-        "query_id":       item["Query_ID"],
-        "query_text":     item["Query_Text"],
-        "metode":         item["Metode"],
-        "rank":           item["Rank"],
+        "query_id":       query_id_val,
+        "query_text":     item.get("Query_Text", ""),
+        "metode":         item.get("Metode", ""),
+        "rank":           item.get("Rank", 0),
         "file_source":    item.get("File_Source", ""),
         "judul_skripsi":  item.get("Judul_Skripsi", ""),
-        "abstrak_murni":  item.get("Abstrak_Murni", ""),
+        "abstrak_murni":  abstrak_val,
         "skor_relevansi": skor
     })
 
@@ -70,9 +81,9 @@ for r in rows:
     seen_keys.add(key)
 
 if duplicates > 0:
-    print(f"\n  Ditemukan {duplicates} duplikat di file JSON. Periksa evaluasi_model.json!")
+    print(f"\n  Ditemukan {duplicates} duplikat di file JSON. Periksa data JSON Anda!")
 else:
-    print(f"\n  Validasi OK: {len(rows)} baris unik dari JSON.")
+    print(f"\n  Validasi OK: {len(rows)} baris unik siap dieksekusi.")
 
 # ─── Langkah 4: Insert dalam batch ───
 BATCH_SIZE = 500
