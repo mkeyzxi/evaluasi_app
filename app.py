@@ -7,8 +7,10 @@ from dotenv import load_dotenv
 # ─── Konfigurasi ──────────────────────────────────────────────
 load_dotenv()
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+# SUPABASE_URL = os.environ.get("SUPABASE_URL")
+# SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     st.error("Variabel SUPABASE_URL dan SUPABASE_KEY belum diset. Periksa file .env Anda.")
