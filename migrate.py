@@ -20,6 +20,22 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Pastikan nama file JSON sesuai dengan yang ada di direktori Anda
 FILE_JSON = "evaluasi_model.json"
+MD_FILE = "Relevansi.md"
+
+
+def load_relevansi_text():
+    if os.path.exists(MD_FILE):
+        with open(MD_FILE, encoding="utf-8") as f:
+            return f.read()
+    return None
+
+relevansi_text = load_relevansi_text()
+if relevansi_text:
+    print("\n--- Kriteria Relevansi dari Relevansi.md ---\n")
+    print(relevansi_text)
+    print("\n--- Akhir Kriteria Relevansi ---\n")
+else:
+    print("WARNING: File Relevansi.md tidak ditemukan. Lanjutkan migrasi tanpa menampilkan kriteria.")
 
 if not os.path.exists(FILE_JSON):
     print(f"ERROR: File {FILE_JSON} tidak ditemukan di direktori ini.")

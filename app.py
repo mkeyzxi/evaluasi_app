@@ -7,13 +7,31 @@ from dotenv import load_dotenv
 # ─── Konfigurasi ──────────────────────────────────────────────
 load_dotenv()
 
+
+def load_relevansi_text():
+    md_file = "Relevansi.md"
+    if os.path.exists(md_file):
+        with open(md_file, encoding="utf-8") as f:
+            return f.read()
+    return None
+
 # SUPABASE_URL = os.environ.get("SUPABASE_URL")
 # SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+SUPABASE_URL = None
+SUPABASE_KEY = None
+
+try:
+    SUPABASE_URL = st.secrets.get("SUPABASE_URL")
+    SUPABASE_KEY = st.secrets.get("SUPABASE_KEY")
+except Exception:
+    SUPABASE_URL = None
+    SUPABASE_KEY = None
+
+SUPABASE_URL = SUPABASE_URL or os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = SUPABASE_KEY or os.environ.get("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    st.error("Variabel SUPABASE_URL dan SUPABASE_KEY belum diset. Periksa file .env Anda.")
+    st.error("Variabel SUPABASE_URL dan SUPABASE_KEY belum diset. Periksa file .env atau .streamlit/secrets.toml Anda.")
     st.stop()
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -180,6 +198,13 @@ def evaluator_page(data):
     st.sidebar.write(f"Progress Query {selected_query}: {query_done} / {len(docs_to_evaluate)} dokumen")
 
     st.title("Evaluasi Relevansi Dokumen")
+    relevansi_text = load_relevansi_text()
+    if relevansi_text:
+        with st.expander("Kriteria Relevansi (Baca sebelum menilai)", expanded=True):
+            st.markdown(relevansi_text)
+    else:
+        st.warning("File `Relevansi.md` tidak ditemukan. Mohon letakkan file di direktori yang sama dengan app.py.")
+
     st.info(f"**Query Anda:** {query_text}")
     st.warning("Penilaian dilakukan dokumen per dokumen. Telaah kecocokan Abstrak dengan Query.")
 
