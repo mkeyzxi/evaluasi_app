@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+from pathlib import Path
 import pandas as pd
 from supabase import create_client
 from dotenv import load_dotenv
@@ -9,9 +10,9 @@ load_dotenv()
 
 
 def load_relevansi_text():
-    md_file = "Relevansi.md"
-    if os.path.exists(md_file):
-        with open(md_file, encoding="utf-8") as f:
+    md_file = Path(__file__).resolve().parent / "Relevansi.md"
+    if md_file.exists():
+        with md_file.open("r", encoding="utf-8") as f:
             return f.read()
     return None
 
